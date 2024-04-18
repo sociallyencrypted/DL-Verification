@@ -7,6 +7,8 @@ import cv2
 from pyzbar.pyzbar import decode
 import numpy as np
 
+backend_url = "http://localhost:8000"
+
 # Config
 st.set_page_config(page_title="Driver's License Verification", layout="centered")
 
