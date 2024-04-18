@@ -3,6 +3,9 @@ import requests
 import qrcode
 from PIL import Image
 import io
+import cv2
+from pyzbar.pyzbar import decode
+import numpy as np
 
 # Config
 st.set_page_config(page_title="Driver's License Verification", layout="centered")
@@ -14,25 +17,38 @@ ADMIN_PASSWORD = "password"
 # Frontend sections
 def police_verification():
     st.title("Police Verification")
-    license_number = st.text_input("Enter license number or scan QR code")
 
-    if st.button("Verify License"):
-        try:
-            response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number})
-            response.raise_for_status()
-            data = response.json()
+    # QR Code Scanning
+    st.subheader("Scan QR Code")
+    uploaded_file = st.file_uploader("Choose an image", type=["jpg", "png", "jpeg"])
 
-            if data["is_valid"]:
-                st.success(data["message"])
-                st.subheader("License Details")
-                st.write(f"Name: {data['license_details']['name']}")
-                st.write(f"Date of Birth: {data['license_details']['dob']}")
-                st.image(Image.open(io.BytesIO(data['license_details']['photo'])), caption="Photo")
-                st.write(f"Validity: {data['license_details']['validity']}")
-            else:
-                st.error(data["message"])
-        except requests.exceptions.RequestException as e:
-            st.error(f"Error: {e}")
+    if uploaded_file is not None:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        # Decode QR code
+        decoded_info = decode(image)
+        if decoded_info:
+            license_number = decoded_info[0].data.decode("utf-8")
+
+            try:
+                response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number})
+                response.raise_for_status()
+                data = response.json()
+
+                if data["is_valid"]:
+                    st.success(data["message"])
+                    st.subheader("License Details")
+                    st.write(f"Name: {data['license_details']['name']}")
+                    st.write(f"Date of Birth: {data['license_details']['dob']}")
+                    st.image(Image.open(io.BytesIO(data['license_details']['photo'])), caption="Photo")
+                    st.write(f"Validity: {data['license_details']['validity']}")
+                else:
+                    st.error(data["message"])
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error: {e}")
+        else:
+            st.error("QR code not detected in the image")
 
 def admin_portal():
     st.title("Admin Portal")
