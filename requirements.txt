@@ -1,0 +1,12 @@
+Flask==2.2.3
+numpy==1.24.2
+opencv_contrib_python==4.7.0.72
+opencv_python==4.8.1.78
+Pillow==9.5.0
+Pillow==10.3.0
+pycryptodome==3.18.0
+pymongo==4.6.3
+pyzbar==0.1.9
+qrcode==7.4.2
+Requests==2.31.0
+streamlit==1.33.0
