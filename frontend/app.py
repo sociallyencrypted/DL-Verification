@@ -6,6 +6,7 @@ import io
 import cv2
 from pyzbar.pyzbar import decode
 import numpy as np
+import base64
 
 backend_url = "http://localhost:8000"
 
@@ -19,6 +20,9 @@ ADMIN_PASSWORD = "password"
 # Frontend sections
 def police_verification():
     st.title("Police Verification")
+    
+    st.subheader("Enter License Number")
+    license_number = st.text_input("License Number")
 
     # QR Code Scanning
     st.subheader("Scan QR Code")
@@ -31,12 +35,13 @@ def police_verification():
         # Decode QR code
         decoded_info = decode(image)
         if decoded_info:
-            license_number = decoded_info[0].data.decode("utf-8")
+            digital_signature = decoded_info[0].data.decode("utf-8")
 
             try:
-                response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number})
+                response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number, "digital_signature": digital_signature})
                 response.raise_for_status()
                 data = response.json()
+                data["license_details"]["photo"] = base64.b64decode(data["license_details"]["photo"])
 
                 if data["is_valid"]:
                     st.success(data["message"])
@@ -68,18 +73,25 @@ def admin_portal():
         if st.button("Issue License"):
             try:
                 photo_bytes = photo.getvalue()
-                response = requests.post(f"{backend_url}/issue-license", json={
+                #encode photo to base64
+                photo_bytes = base64.b64encode(photo_bytes).decode('utf-8')
+                json={
                     "name": name,
                     "dob": str(dob),
                     "photo": photo_bytes,
                     "validity": str(validity)
-                })
+                }
+                response = requests.post(f"{backend_url}/issue-license", json=json)
                 response.raise_for_status()
                 data = response.json()
                 st.success(data["message"])
                 st.subheader("License Details")
                 st.write(f"License Number: {data['license_number']}")
                 qr_img = qrcode.make(data["digital_signature"])
+                # convert from PILImage to bytes
+                img_byte_arr = io.BytesIO()
+                qr_img.save(img_byte_arr, format='PNG')
+                qr_img = Image.open(img_byte_arr)
                 st.image(qr_img, caption="Digital Signature (QR Code)")
             except requests.exceptions.RequestException as e:
                 st.error(f"Error: {e}")

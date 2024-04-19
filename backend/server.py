@@ -4,11 +4,12 @@ from models.license import License
 from utils.digital_signature import DigitalSignature
 import datetime
 import random
+import base64
 
 private_key = open('keys/private.pem').read()
 public_key = open('keys/public.pem').read()
 
-digital_signature = DigitalSignature(private_key, public_key)
+DSGen = DigitalSignature(private_key, public_key)
 
 app = Flask(__name__)
 
@@ -21,13 +22,15 @@ def generate_license_number():
 def issue_license():
     data = request.get_json()
     name = data.get('name')
-    dob = datetime.datetime.fromparsecode(data.get('dob'))
+    dob = data.get('dob')
     photo = data.get('photo')
-    validity = datetime.datetime.fromparsecode(data.get('validity'))
+    # decode photo bytes from base64
+    photo = base64.b64decode(photo.encode('utf-8'))
+    validity = data.get('validity')
 
     license_number = generate_license_number()
     message = f"{license_number}|{name}|{dob}|{validity}".encode('utf-8')
-    digital_signature_str = digital_signature.generate_signature(message)
+    digital_signature_str = DSGen.generate_signature(message)
 
     license = License(
         license_number=license_number,
@@ -47,13 +50,18 @@ def issue_license():
 def verify_license():
     data = request.get_json()
     license_number = data.get('license_number')
+    digital_signature = data.get('digital_signature')
 
     license = License.find_by_license_number(license_number)
     if not license:
         return jsonify({'message': 'License not found', 'is_valid': False}), 404
 
+    print(license.license_number, license.name, license.dob, license.validity)
     message = f"{license.license_number}|{license.name}|{license.dob}|{license.validity}".encode('utf-8')
-    is_valid = digital_signature.verify_signature(message, license.digital_signature)
+    is_valid = DSGen.verify_signature(message, digital_signature)
+    
+    # convert license photo to base64 so it is serializable
+    license.photo = base64.b64encode(license.photo).decode('utf-8')
 
     if is_valid:
         return jsonify({
