@@ -62,6 +62,13 @@ def verify_license():
     
     # convert license photo to base64 so it is serializable
     license.photo = base64.b64encode(license.photo).decode('utf-8')
+    
+    # check if license is valid
+    license.validity = datetime.datetime.strptime(license.validity, '%Y-%m-%d')
+    date = datetime.datetime.now()
+    if date > license.validity:
+        is_valid = False
+        
 
     if is_valid:
         return jsonify({
@@ -75,7 +82,7 @@ def verify_license():
             }
         }), 200
     else:
-        return jsonify({'message': 'License is invalid', 'is_valid': False}), 400
+        return jsonify({'message': 'License is invalid', 'is_valid': False}), 200
 
 if __name__ == '__main__':
     app.run(port=8000)

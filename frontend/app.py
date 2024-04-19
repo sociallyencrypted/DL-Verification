@@ -41,13 +41,13 @@ def police_verification():
                 response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number, "digital_signature": digital_signature})
                 response.raise_for_status()
                 data = response.json()
-                data["license_details"]["photo"] = base64.b64decode(data["license_details"]["photo"])
 
                 if data["is_valid"]:
                     st.success(data["message"])
                     st.subheader("License Details")
                     st.write(f"Name: {data['license_details']['name']}")
                     st.write(f"Date of Birth: {data['license_details']['dob']}")
+                    data["license_details"]["photo"] = base64.b64decode(data["license_details"]["photo"])
                     st.image(Image.open(io.BytesIO(data['license_details']['photo'])), caption="Photo")
                     st.write(f"Validity: {data['license_details']['validity']}")
                 else:
