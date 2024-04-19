@@ -54,7 +54,7 @@ def verify_license():
 
     license = License.find_by_license_number(license_number)
     if not license:
-        return jsonify({'message': 'License not found', 'is_valid': False}), 404
+        return jsonify({'message': 'License not found', 'is_valid': False}), 200
 
     print(license.license_number, license.name, license.dob, license.validity)
     message = f"{license.license_number}|{license.name}|{license.dob}|{license.validity}".encode('utf-8')
