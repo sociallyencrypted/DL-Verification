@@ -7,6 +7,53 @@ import cv2
 from pyzbar.pyzbar import decode
 import numpy as np
 import base64
+import json
+from datetime import datetime
+import socket
+from rsa import *
+import ast
+
+from Crypto.Cipher import AES
+import base64
+
+# Key and IV should be generated with a secure random generator
+def aes_enc(session_key,plaintext):
+    key = session_key.encode()#b'secretkey1234567' # 16, 24, or 32 bytes long
+    iv = b'1234567890123456' # 16 bytes long
+
+    # The message you want to encrypt
+    message = plaintext.encode()
+    # Pad the message to be a multiple of 16 bytes
+    pad = b' ' * (16 - len(message) % 16)
+    message += pad
+
+    # Create the AES cipher object
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    # Encrypt the message
+    encrypted_message = cipher.encrypt(message)
+
+    # Encode the encrypted message in base64 for transmission/storage
+    encoded_message = base64.b64encode(encrypted_message)
+    return encoded_message
+
+def aes_dec(session_key,encoded_message):
+
+    key = session_key.encode()#b'secretkey1234567' # 16, 24, or 32 bytes long
+    iv = b'1234567890123456' # 16 bytes long
+    # Decode the base64-encoded message
+    decoded_message = base64.b64decode(encoded_message)
+    
+    # Create a new AES cipher object for decryption
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    # Decrypt the message
+    decrypted_message = cipher.decrypt(decoded_message)
+
+    # Remove the padding from the decrypted message
+    decrypted_message = decrypted_message.rstrip()
+
+    return decrypted_message.decode()
 
 backend_url = "http://localhost:8000"
 
@@ -17,8 +64,45 @@ st.set_page_config(page_title="Driver's License Verification", layout="centered"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "password"
 
+def get_auth(self_id,network_address,ts,session_key):
+    auth={"self_id":self_id,"address":network_address,"timestamp":ts}
+    auth=json.dumps(auth)
+    enc_auth=(str(aes_enc(session_key,auth)).encode())#tkt encrypted with public key of tgs for only tgs
+    return enc_auth.decode()#tkt is in byte string
+
 # Frontend sections
 def police_verification():
+
+    public_key = (6077,3437)
+    private_key = (6077,4613)
+
+
+    request = {'self_id':'A','id':'TGS','time':str(datetime.now()),"Duration":5}
+    request = json.dumps(request)
+
+    client = socket.socket() 
+    client.connect((socket.gethostname(), 2000)) #port 2000 for AS 
+    client.send(request.encode())
+    data_recv = client.recv(10240).decode()
+    data_recv = decrypt(ast.literal_eval(data_recv),private_key)
+    data_recv = json.loads(data_recv)
+    session_key_TGS = data_recv["session_key"]
+    client.close()
+
+    print("Session key with TGS: ",session_key_TGS)
+
+    client = socket.socket() 
+    client.connect((socket.gethostname(), 2001))  
+    ts=str(datetime.now())
+    request = {'id':'B','ticket':data_recv["TGS_ticket"],"authenticator":get_auth("A","network_address",ts,session_key_TGS)}
+    request_to_send = json.dumps(request)
+    client.send(str(json.dumps(request_to_send)).encode())
+    data_recv = client.recv(10240).decode()
+    data_recv = ast.literal_eval(aes_dec(session_key_TGS,ast.literal_eval(data_recv)))
+    client.close()
+
+    print("Session key received from TGS to communicate with B: ",data_recv["session_key"])
+
     st.title("Police Verification")
     
     st.subheader("Enter License Number")
