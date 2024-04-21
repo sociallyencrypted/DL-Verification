@@ -67,8 +67,8 @@ ADMIN_PASSWORD = "password"
 def get_auth(self_id,network_address,ts,session_key):
     auth={"self_id":self_id,"address":network_address,"timestamp":ts}
     auth=json.dumps(auth)
-    enc_auth=(str(aes_enc(session_key,auth)).encode())#tkt encrypted with public key of tgs for only tgs
-    return enc_auth.decode()#tkt is in byte string
+    enc_auth=(str(aes_enc(session_key,auth)).encode()) #tkt encrypted with public key of tgs for only tgs
+    return enc_auth.decode() #tkt is in byte string
 
 # Frontend sections
 def police_verification():
@@ -76,32 +76,50 @@ def police_verification():
     public_key = (6077,3437)
     private_key = (6077,4613)
 
+    if "session_key" not in st.session_state or "ticket" not in st.session_state or "ts" not in st.session_state:
+        request = {'self_id':'A','id':'TGS','time':str(datetime.now()),"Duration":5}
+        request = json.dumps(request)
 
-    request = {'self_id':'A','id':'TGS','time':str(datetime.now()),"Duration":5}
-    request = json.dumps(request)
+        client = socket.socket() 
+        client.connect((socket.gethostname(), 2000)) #port 2000 for AS 
+        client.send(request.encode())
+        data_recv = client.recv(10240).decode()
+        data_recv = decrypt(ast.literal_eval(data_recv),private_key)
+        data_recv = json.loads(data_recv)
+        session_key_TGS = data_recv["session_key"]
+        client.close()
 
-    client = socket.socket() 
-    client.connect((socket.gethostname(), 2000)) #port 2000 for AS 
-    client.send(request.encode())
-    data_recv = client.recv(10240).decode()
-    data_recv = decrypt(ast.literal_eval(data_recv),private_key)
-    data_recv = json.loads(data_recv)
-    session_key_TGS = data_recv["session_key"]
-    client.close()
+        print("Session key with TGS: ",session_key_TGS)
 
-    print("Session key with TGS: ",session_key_TGS)
+        client = socket.socket() 
+        client.connect((socket.gethostname(), 2001))  
+        ts = str(datetime.now())
+        request = {'id':'B','ticket':data_recv["TGS_ticket"],"authenticator":get_auth("A","network_address",ts,session_key_TGS)}
+        request_to_send = json.dumps(request)
+        client.send(str(json.dumps(request_to_send)).encode())
+        data_recv = client.recv(10240).decode()
+        data_recv = ast.literal_eval(aes_dec(session_key_TGS,ast.literal_eval(data_recv)))
+        client.close()
 
-    client = socket.socket() 
-    client.connect((socket.gethostname(), 2001))  
-    ts=str(datetime.now())
-    request = {'id':'B','ticket':data_recv["TGS_ticket"],"authenticator":get_auth("A","network_address",ts,session_key_TGS)}
-    request_to_send = json.dumps(request)
-    client.send(str(json.dumps(request_to_send)).encode())
-    data_recv = client.recv(10240).decode()
-    data_recv = ast.literal_eval(aes_dec(session_key_TGS,ast.literal_eval(data_recv)))
-    client.close()
+        print("Session key received from TGS to communicate with B: ",data_recv["session_key"])
+        print("Ticket received from TGS to communicate with B: ",data_recv["ticket"])
+        print("Current timestamp: ",ts)
 
-    print("Session key received from TGS to communicate with B: ",data_recv["session_key"])
+        st.session_state.session_key = data_recv["session_key"]
+        st.session_state.ticket = data_recv["ticket"]
+        st.session_state.ts = ts
+    
+    else:
+        session_key = st.session_state.session_key
+        ticket = st.session_state.ticket
+        ts = st.session_state.ts
+        print("Session key: ",session_key)
+        print("Ticket: ",ticket)
+        print("Timestamp: ",ts)
+
+    session_key_V = st.session_state.session_key
+    ticket = st.session_state.ticket
+    authenticator = get_auth("A","network_address", ts, session_key_V)
 
     st.title("Police Verification")
     
@@ -122,7 +140,11 @@ def police_verification():
             digital_signature = decoded_info[0].data.decode("utf-8")
 
             try:
-                response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number, "digital_signature": digital_signature})
+                response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number, 
+                                                                                "digital_signature": digital_signature,
+                                                                                "ticket":ticket,
+                                                                                "authenticator":authenticator
+                                                                                })
                 response.raise_for_status()
                 data = response.json()
 
@@ -179,7 +201,7 @@ def admin_portal():
                 st.image(qr_img, caption="Digital Signature (QR Code)")
             except requests.exceptions.RequestException as e:
                 st.error(f"Error: {e}")
-    else:
+    elif username or password:
         st.error("Invalid username or password")
 
 # Sidebar navigation

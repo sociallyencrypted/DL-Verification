@@ -5,6 +5,49 @@ from utils.digital_signature import DigitalSignature
 import datetime
 import random
 import base64
+from rsa import *
+import ast
+from Crypto.Cipher import AES
+import base64
+
+# Key and IV should be generated with a secure random generator
+def aes_enc(session_key,plaintext):
+    key = session_key.encode()#b'secretkey1234567' # 16, 24, or 32 bytes long
+    iv = b'1234567890123456' # 16 bytes long
+
+    # The message you want to encrypt
+    message = plaintext.encode()
+    # Pad the message to be a multiple of 16 bytes
+    pad = b' ' * (16 - len(message) % 16)
+    message += pad
+
+    # Create the AES cipher object
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    # Encrypt the message
+    encrypted_message = cipher.encrypt(message)
+
+    # Encode the encrypted message in base64 for transmission/storage
+    encoded_message = base64.b64encode(encrypted_message)
+    return encoded_message
+
+def aes_dec(session_key,encoded_message):
+
+    key = session_key.encode()#b'secretkey1234567' # 16, 24, or 32 bytes long
+    iv = b'1234567890123456' # 16 bytes long
+    # Decode the base64-encoded message
+    decoded_message = base64.b64decode(encoded_message)
+    
+    # Create a new AES cipher object for decryption
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    # Decrypt the message
+    decrypted_message = cipher.decrypt(decoded_message)
+
+    # Remove the padding from the decrypted message
+    decrypted_message = decrypted_message.rstrip()
+
+    return decrypted_message.decode()
 
 private_key = open('keys/private.pem').read()
 public_key = open('keys/public.pem').read()
@@ -51,6 +94,22 @@ def verify_license():
     data = request.get_json()
     license_number = data.get('license_number')
     digital_signature = data.get('digital_signature')
+    ticket = data.get('ticket')
+    authenticator = data.get('authenticator')
+
+    public_key = (1111,573)
+    private_key = (1111,637)
+
+    ticket = ast.literal_eval(decrypt(ast.literal_eval(ticket),private_key))
+    session_key_cv = ticket["session_key"]
+    print("Ticket: ",ticket)
+    authenticator = ast.literal_eval(aes_dec(session_key_cv,ast.literal_eval(authenticator)))
+    print("Authenticator: ",authenticator)
+
+    if not authenticator["self_id"] == ticket["self_id"]:
+        return jsonify({'message': 'Unauthorized access', 'is_valid': False}), 200
+    else:
+        print("Authorized access")
 
     license = License.find_by_license_number(license_number)
     if not license:
