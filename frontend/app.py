@@ -12,7 +12,7 @@ from datetime import datetime
 import socket
 from rsa import *
 import ast
-
+import hashlib
 from Crypto.Cipher import AES
 import base64
 
@@ -60,9 +60,13 @@ backend_url = "http://localhost:8000"
 # Config
 st.set_page_config(page_title="Driver's License Verification", layout="centered")
 
+def read_admin_pass():
+    with open("keys/admin_pass.txt", "r") as file:
+        return file.read()
+    
 # Admin credentials: NEED TO BE SECURED
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "password"
+ADMIN_PASSWORD_HASH = read_admin_pass()
 
 def get_auth(self_id,network_address,ts,session_key):
     auth={"self_id":self_id,"address":network_address,"timestamp":ts}
@@ -170,7 +174,7 @@ def admin_portal():
     username = st.text_input("Username", type="default")
     password = st.text_input("Password", type="password")
 
-    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+    if username == ADMIN_USERNAME and hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
         name = st.text_input("Name")
         dob = st.date_input("Date of Birth")
         photo = st.file_uploader("Upload Photo", type=["jpg", "png"])

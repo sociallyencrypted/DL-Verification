@@ -2,3 +2,4 @@ backend/keys/*
 __pycache__
 keys/*.json
 keys/*.pem
+keys/*.txt
