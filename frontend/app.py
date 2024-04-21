@@ -81,7 +81,10 @@ def police_verification():
     private_key = (6077,4613)
 
     if "session_key" not in st.session_state or "ticket" not in st.session_state or "ts" not in st.session_state:
-        request = {'self_id':'A','id':'TGS','time':str(datetime.now()),"Duration":5}
+        request = {'self_id': 'A',
+                   'id': 'TGS',
+                   'time': str(datetime.now()),
+                   "Duration": 5}
         request = json.dumps(request)
 
         client = socket.socket() 
@@ -98,7 +101,15 @@ def police_verification():
         client = socket.socket() 
         client.connect((socket.gethostname(), 2001))  
         ts = str(datetime.now())
-        request = {'id':'B','ticket':data_recv["TGS_ticket"],"authenticator":get_auth("A","network_address",ts,session_key_TGS)}
+        request = {'id': 'B',
+                   'ticket': data_recv["TGS_ticket"],
+                   "authenticator": get_auth(
+                                            "A",
+                                             "network_address",
+                                             ts,
+                                             session_key_TGS
+                                             )
+                }
         request_to_send = json.dumps(request)
         client.send(str(json.dumps(request_to_send)).encode())
         data_recv = client.recv(10240).decode()
@@ -146,8 +157,8 @@ def police_verification():
             try:
                 response = requests.post(f"{backend_url}/verify-license", json={"license_number": license_number, 
                                                                                 "digital_signature": digital_signature,
-                                                                                "ticket":ticket,
-                                                                                "authenticator":authenticator
+                                                                                "ticket": ticket,
+                                                                                "authenticator": authenticator
                                                                                 })
                 response.raise_for_status()
                 data = response.json()

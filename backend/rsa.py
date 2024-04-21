@@ -23,7 +23,6 @@ def generate_prime(bits):
         if is_prime(p):
             return p
 
-
 def is_prime(n):
     if n <= 1:
         return False
@@ -91,7 +90,7 @@ def main():
     print('Public key:', public_key)
     print('Private key:', private_key)
 
-    plaintext = 'RSA freakingggg workssssss!'
+    plaintext = 'RSA Test'
     ciphertext = encrypt(plaintext, public_key)
     decrypted_plaintext = decrypt(ciphertext, private_key)
     print('Plaintext:', plaintext)
