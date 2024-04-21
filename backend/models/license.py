@@ -4,13 +4,11 @@ from datetime import datetime
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import json
+from dotenv import load_dotenv
+import os
 
-with open('keys/MongoKeys.json') as f:
-    data = json.load(f)
-    UserName = data['UserName']
-    PSWD = data['PSWD']
-
-uri = f"mongodb+srv://{UserName}:{PSWD}@nsc.8wuh4uj.mongodb.net/?retryWrites=true&w=majority&appName=NSC"
+load_dotenv()
+uri = os.getenv("MONGO_URI")
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
 # Send a ping to confirm a successful connection
