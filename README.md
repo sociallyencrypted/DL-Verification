@@ -16,5 +16,5 @@ python3 backend/server.py
 
 Then run the client
 ```
-python3 frontend/app.py
+streamlit run frontend/app.py
 ```
