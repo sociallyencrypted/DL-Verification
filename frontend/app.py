@@ -201,7 +201,7 @@ def admin_portal():
                 st.image(qr_img, caption="Digital Signature (QR Code)")
             except requests.exceptions.RequestException as e:
                 st.error(f"Error: {e}")
-    elif username or password:
+    elif username and password:
         st.error("Invalid username or password")
 
 # Sidebar navigation
